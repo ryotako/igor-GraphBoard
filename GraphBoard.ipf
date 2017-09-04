@@ -134,7 +134,6 @@ static Function InputAction(s)
 			case 0: // Enter
 				SetStr("Input", s.sval)
 				UpdateGraphNameWave()
-				print s.sval
 				break
 			case 2: // Shift + Enter
 				break
@@ -266,8 +265,6 @@ static Function ListBoxContextMenuAction(action, graphNames)
 		
 		strSwitch(action)
 			case "show window":
-				print graphName
-
 				DoWindow/F $graphName
 				break
 			case "hide window":
