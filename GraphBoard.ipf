@@ -1,5 +1,9 @@
 #pragma ModuleName = GraphBoard
 
+static constant TRUE = 1
+static constant FALSE = 0
+
+
 Menu "Misc"
 	"GraphBoard", /Q, NewGraphBoard()
 End
@@ -9,14 +13,14 @@ End
 //------------------------------------------------------------------------------
 
 Function NewGraphBoard()
-	Variable monitorWidth  = MinimumMonitorSize("width")
-	Variable monitorHeight = MinimumMonitorSize("height")
+	Variable monWidth  = MinimumMonitorSize("width")
+	Variable monHeight = MinimumMonitorSize("height")
 
 	// Make a GraphBoard window (singleton)
 	if(strlen(WinList("GraphBoard", ";", "WIN:64")))
 		KillWindow GraphBoard
 	endif
-	NewPanel/K=1/N=GraphBoard/W=(monitorWidth*0.7, monitorHeight*0, monitorWidth*1, monitorHeight*1) as "GraphBoard"
+	NewPanel/K=1/N=GraphBoard/W=(monWidth*0.7, monHeight*0, monWidth*1, monHeight*1) as "GraphBoard"
 	String panelName = S_Name
 
 	ModifyPanel/W=$panelName noEdit=1
@@ -31,37 +35,11 @@ Function NewGraphBoard()
 	ListBox GB_ListBox, selWave = GetNumWave("SelectionOfGraphNames")
 	ListBox GB_ListBox,mode = 10 // multiple select
 	ListBox GB_ListBox,font = "Helvetica Neue", fsize = 13
-	ListBox GB_ListBox,special= {1,0,1}
 	ListBox GB_ListBox,proc=GraphBoard#ListBoxAction
 
 	UpdateGraphNameWave()
-	ResizeControls(panelName)
+	UpdateControls(panelName)
 EndMacro
-
-#if Exists("PanelResolution") != 3
-static Function PanelResolution(wName) // For compatibility between Igor 6 & 7
-	String wName
-	return 72 // that is, "pixels"
-End
-#endif
-
-Function ResizeControls(win)
-	String win
-
-	if( PanelResolution(win) == 72 )
-		GetWindow $win wsizeDC		// the new window size in pixels (the Igor 6 way)
-	else
-		GetWindow $win wsize		// the new window size in points (the Igor 7 way, sometimes)
-	endif
-	Variable panelWidth  = V_Right  - V_Left
-	Variable panelHeight = V_Bottom - V_Top
-	
-	ControlInfo/W=$win GB_Input
-	Variable inputHeight = V_height
-	
-	SetVariable GB_Input, win=$win, pos={0, 0},  size={panelWidth, inputHeight}
-	ListBox GB_ListBox, win=$win, pos={0, inputHeight}, size={panelWidth, panelHeight - inputHeight}
-End
 
 static Function MinimumMonitorSize(type)
 	String type // "width" or "height"
@@ -85,6 +63,40 @@ static Function MinimumMonitorSize(type)
 	return min_size
 End
 
+#if Exists("PanelResolution") != 3
+static Function PanelResolution(wName) // For compatibility between Igor 6 & 7
+	String wName
+	return 72 // that is, "pixels"
+End
+#endif
+
+Function UpdateControls(win)
+	String win
+	
+	if(GetVar("IsListView"))
+		ListBox GB_ListBox,special= {0,0,1}
+	else
+		ListBox GB_ListBox,special= {1,0,1}
+	endif
+	
+	//
+	// Resize controls
+	//
+	if( PanelResolution(win) == 72 )
+		GetWindow $win wsizeDC		// the new window size in pixels (the Igor 6 way)
+	else
+		GetWindow $win wsize		// the new window size in points (the Igor 7 way, sometimes)
+	endif
+	Variable panelWidth  = V_Right  - V_Left
+	Variable panelHeight = V_Bottom - V_Top
+	
+	ControlInfo/W=$win GB_Input
+	Variable inputHeight = V_height
+	
+	SetVariable GB_Input, win=$win, pos={0, 0}, size={panelWidth, inputHeight}
+	ListBox GB_ListBox, win=$win, pos={0, inputHeight}, size={panelWidth, panelHeight - inputHeight}
+End
+
 //------------------------------------------------------------------------------
 // Hook functions
 //------------------------------------------------------------------------------
@@ -106,7 +118,7 @@ static Function WinProc(s)
 		UpdateGraphNameWave()
 		
 		if(s.eventCode == 6)
-			ResizeControls(s.winName)
+			UpdateControls(s.winName)
 		endif
 	endif
 End
@@ -157,6 +169,7 @@ static Function ListBoxAction(s)
 				endif
 				
 				UpdateGraphNameWave()
+				UpdateControls(s.win)
 			endif
 			break		
 		case 3: // double click
@@ -178,6 +191,7 @@ End
 static Function/S ListBoxGeneralContextMenuPopUp()
 	String popup = ""
 	popup += "sort by date;sort by name;"
+	popup += "list view;"
 	popup += "columns 1;columns 2;columns 3;columns 4;"
 	return popup
 End
@@ -186,22 +200,25 @@ static Function ListBoxGeneralContextMenuAction(action)
 	String action
 	strSwitch(action)
 		case "sort by date":
-			SetVar("SortedByName", 0)
+			SetVar("SortedByName", FALSE)
 			break
 		case "sort by name":
-			SetVar("SortedByName", 1)			
+			SetVar("SortedByName", TRUE)	
 			break
+		case "list view":
+			SetVar("IsListView", TRUE); SetVar("NumberOfColumns", 1)
+			break			
 		case "columns 1":
-			SetVar("NumberOfColumns", 1)
+			SetVar("IsListView", FALSE); SetVar("NumberOfColumns", 1)
 			break
 		case "columns 2":
-			SetVar("NumberOfColumns", 2)
+			SetVar("IsListView", FALSE); SetVar("NumberOfColumns", 2)
 			break
 		case "columns 3":
-			SetVar("NumberOfColumns", 3)
+			SetVar("IsListView", FALSE); SetVar("NumberOfColumns", 3)
 			break
 		case "columns 4":
-			SetVar("NumberOfColumns", 4)
+			SetVar("IsListView", FALSE); SetVar("NumberOfColumns", 4)
 			break
 	endSwitch
 End
