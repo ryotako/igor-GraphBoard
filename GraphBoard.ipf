@@ -1,8 +1,5 @@
 #pragma ModuleName = GraphBoard
 
-static constant TRUE = 1
-static constant FALSE = 0
-
 
 Menu "Misc"
 	"GraphBoard", /Q, NewGraphBoard()
@@ -28,56 +25,31 @@ Function NewGraphBoard()
 	
 	SetVariable GB_Input, title = " "
 	SetVariable GB_Input, value = $PackagePath() + "S_Input"
-	SetVariable GB_Input, font = "Helvetica Neue", fSize = 15
+	SetVariable GB_Input, font = "Arial", fSize = 15
 	SetVariable GB_Input, proc=GraphBoard#InputAction
 	
-	ListBox GB_ListBox,listWave = GetTxtWave("GraphNames")	
+	ListBox GB_ListBox, listWave = GetTxtWave("GraphNames")	
 	ListBox GB_ListBox, selWave = GetNumWave("SelectionOfGraphNames")
-	ListBox GB_ListBox,mode = 10 // multiple select
-	ListBox GB_ListBox,font = "Helvetica Neue", fsize = 13
+	ListBox GB_ListBox, mode = 10 // multiple select
+	ListBox GB_ListBox, font = "Arial", fsize = 13
 	ListBox GB_ListBox,proc=GraphBoard#ListBoxAction
 
 	UpdateGraphNameWave()
 	UpdateControls(panelName)
 EndMacro
 
-static Function MinimumMonitorSize(type)
-	String type // "width" or "height"
-	String screens = GrepList(IgorInfo(0), "^SCREEN\\d+")
-	
-	Variable i, min_size = inf
-	for(i = 0; i < ItemsInList(screens); i += 1)
-		String screen = StringFromList(i, screens), left, top, right, bottom
-		SplitString/E="RECT=(\\d+),(\\d+),(\\d+),(\\d+)" screen, left, top, right, bottom
-		
-		strSwitch(type)
-			case "width":
-				min_size = min(min_size, abs(Str2Num(left) - Str2Num(right)))
-				break
-			case "height":
-				min_size = min(min_size, abs(Str2Num(top) - Str2Num(bottom)))
-				break
-		endSwitch
-	endfor
-	
-	return min_size
-End
-
-#if Exists("PanelResolution") != 3
-static Function PanelResolution(wName) // For compatibility between Igor 6 & 7
-	String wName
-	return 72 // that is, "pixels"
-End
-#endif
-
 Function UpdateControls(win)
 	String win
 	
-	if(GetVar("IsListView"))
-		ListBox GB_ListBox,special= {0,0,1}
-	else
-		ListBox GB_ListBox,special= {1,0,1}
-	endif
+	strSwitch(GetStr("ListBoxView"))
+		case "list":
+			ListBox GB_ListBox, win=$win, special= {0,0,1}
+			break
+		case "thumbnail":
+		default:
+			ListBox GB_ListBox, win=$win, special= {1,0,1}
+			break
+	endSwitch
 	
 	//
 	// Resize controls
@@ -97,6 +69,40 @@ Function UpdateControls(win)
 	ListBox GB_ListBox, win=$win, pos={0, inputHeight}, size={panelWidth, panelHeight - inputHeight}
 End
 
+static Function UpdateGraphNameWave()	
+	String graphList = WinList("*", ";", "WIN:1") 
+	
+	// Sort
+	strSwitch(GetStr("SortMethod"))
+		case "date":
+			break
+		case "name":
+			graphList = SortList(graphList, ";", 16)			
+			break
+	endSwitch
+	
+	// Filter
+	String regExps = GetStr("Input")
+	Variable i
+	for(i = 0; i < ItemsInList(regExps, " "); i += 1)
+		String regExp = StringFromList(i, "(?i)" + regExps, " ")
+		graphList = GrepList(graphList, regExp)
+	endfor
+
+	// Convert to waves
+	Variable numCol = GetVar("NumberOfColumns")
+	if(numType(numCol) || numCol < 1)
+		numCol = 3
+	endif
+	Make/FREE/T/N=(ItemsInList(graphlist)) graphNames = StringFromList(p, graphList)
+	Redimension/N=(ceil(numpnts(graphNames)/numCol), numCol) graphNames
+	
+	Make/FREE/N=(DimSize(graphNames, 0), DimSize(graphNames, 1)) selection = 0
+
+	SetTxtWave("GraphNames", graphNames)
+	SetNumWave("SelectionOfGraphNames", selection)
+End
+
 //------------------------------------------------------------------------------
 // Hook functions
 //------------------------------------------------------------------------------
@@ -114,13 +120,15 @@ static Function WinProc(s)
 		return NaN
 	endif
 	
-	if(s.eventCode == 0 || s.eventCode == 6) // activate or resize
-		UpdateGraphNameWave()
-		
-		if(s.eventCode == 6)
+	switch(s.eventCode)
+		case 0: // activate
+			UpdateGraphNameWave()
 			UpdateControls(s.winName)
-		endif
-	endif
+			break
+		case 6: // resize
+			UpdateControls(s.winName)
+			break
+	endSwitch
 End
 
 //
@@ -128,19 +136,18 @@ End
 //
 static Function InputAction(s)
 	STRUCT WMSetVariableAction &s
-	
-	if(s.eventCode == 2) // key input		
-		switch(s.eventMod)
-			case 0: // Enter
-				SetStr("Input", s.sval)
-				UpdateGraphNameWave()
-				break
-			case 2: // Shift + Enter
-				break
-			case 4: // Alt + Enter
-				break
-		endswitch
-	endif
+
+	switch(s.eventCode)
+		case 2: // key input
+			switch(s.eventMod)
+				case 0: // Enter
+				case 2: // Shift + Enter
+				case 4: // Alt + Enter
+					SetStr("Input", s.sval)
+					UpdateGraphNameWave()
+					break
+			endswitch
+	endSwitch
 	
 	if(IgorVersion() < 7)
 		SetVariable/Z $s.ctrlName, win=$s.win, activate
@@ -152,7 +159,7 @@ static Function ListBoxAction(s)
 
 	switch(s.eventCode)
 		case 1:
-			if(s.eventMod > 15) // contextual menu click
+			if(s.eventMod >= 2^4) // contextual menu click
 				WAVE selection = GetNumWave("LastSelectionOfGraphNames")
 				SetNumWave("SelectionOfGraphNames", selection)
 				DoUpdate	
@@ -174,6 +181,10 @@ static Function ListBoxAction(s)
 		case 3: // double click
 			WAVE/T graphNames = GetTxtWave("graphNames")
 			DoWindow/F $graphNames[s.row][s.col]
+			
+			UpdateGraphNameWave()
+			UpdateControls(s.win)
+			DoWindow/F $s.win
 			break
 	endswitch
 
@@ -190,7 +201,9 @@ End
 static Function/S ListBoxGeneralContextMenuPopUp()
 	String popup = ""
 	popup += "sort by date;sort by name;"
-	popup += "list view;"
+	popup += "----------;"
+	popup += "list view;thumbnail view;"
+	popup += "----------;"
 	popup += "columns 1;columns 2;columns 3;columns 4;"
 	return popup
 End
@@ -199,25 +212,28 @@ static Function ListBoxGeneralContextMenuAction(action)
 	String action
 	strSwitch(action)
 		case "sort by date":
-			SetVar("SortedByName", FALSE)
+			SetStr("SortMethod", "date")
 			break
 		case "sort by name":
-			SetVar("SortedByName", TRUE)	
+			SetStr("SortMethod", "name")
+			break
+		case "thumbnail view":
+			SetStr("ListBoxView", "thumbnail")
 			break
 		case "list view":
-			SetVar("IsListView", TRUE); SetVar("NumberOfColumns", 1)
+			SetStr("ListBoxView", "list")
 			break			
 		case "columns 1":
-			SetVar("IsListView", FALSE); SetVar("NumberOfColumns", 1)
+			SetVar("NumberOfColumns", 1)
 			break
 		case "columns 2":
-			SetVar("IsListView", FALSE); SetVar("NumberOfColumns", 2)
+			SetVar("NumberOfColumns", 2)
 			break
 		case "columns 3":
-			SetVar("IsListView", FALSE); SetVar("NumberOfColumns", 3)
+			SetVar("NumberOfColumns", 3)
 			break
 		case "columns 4":
-			SetVar("IsListView", FALSE); SetVar("NumberOfColumns", 4)
+			SetVar("NumberOfColumns", 4)
 			break
 	endSwitch
 End
@@ -229,7 +245,10 @@ static Function/S ListBoxContextMenuPopUp(isMultipleSelection)
 	Variable isMultipleSelection
 	String popup = ""
 	popup += "show window;hide window;kill window;"
+	popup += "----------;"
 	popup += "make style;apply style;"
+	popup += "----------;"
+	popup += "new layout;add to layout"
 
 	if(IsMultipleSelection)
 		popup = RemoveFromList("make style", popup)
@@ -240,6 +259,7 @@ End
 static Function ListBoxContextMenuAction(action, graphNames)
 	String action; WAVE/T graphNames
 	String styleName = ""
+	String layoutName = ""
 	
 	// confirmation or parameter-setting
 	strSwitch(action)
@@ -255,6 +275,14 @@ static Function ListBoxContextMenuAction(action, graphNames)
 			if(V_Flag)
 				return NaN
 			endif
+			break
+		case "new layout":
+			Prompt layoutName, "Enter Layout Name:"
+			DoPrompt "New Layout", layoutName
+			if(V_Flag)
+				return NaN
+			endif
+			NewLayout/N=layoutName
 			break
 	endSwitch
 	
@@ -286,47 +314,12 @@ static Function ListBoxContextMenuAction(action, graphNames)
 				sprintf cmd, "DoWindow/F %s; %s()", graphName, styleName
 				Execute cmd
 				break
-		endSwitch	
+			case "new layout":
+			case "add to layout":
+				AppendLayoutObject/F=0/T=1 graph $graphName
+				break
+		endSwitch
 	endfor
-End
-
-//------------------------------------------------------------------------------
-// Manage the text wave containing graph names
-//------------------------------------------------------------------------------
-
-static Function/WAVE SelectedGraphNames(graphNames, selection)
-	WAVE/T graphNames; WAVE selection
-	Extract/FREE graphNames, selected, selection && strlen(graphNames)
-	return selected
-End
-
-static Function UpdateGraphNameWave()
-	Variable numCol = GetVar("NumberOfColumns")
-	String regExps = GetStr("Input")
-	
-	if(numType(numCol) || numCol < 1)
-		numCol = 3
-	endif
-	
-	String graphList = WinList("*", ";", "WIN:1") 
-	
-	if(GetVar("SortedByName"))
-		graphList = SortList(graphList, ";", 16)
-	endif
-	
-	Variable i
-	for(i = 0; i < ItemsInList(regExps, " "); i += 1)
-		String regExp = StringFromList(i, "(?i)" + regExps, " ")
-		graphList = GrepList(graphList, regExp)
-	endfor
-	
-	Make/FREE/T/N=(ItemsInList(graphlist)) graphNames = StringFromList(p, graphList)
-	Redimension/N=(ceil(numpnts(graphNames)/numCol), numCol) graphNames
-	
-	Make/FREE/N=(DimSize(graphNames, 0), DimSize(graphNames, 1)) selection = 0
-
-	SetTxtWave("GraphNames", graphNames)
-	SetNumWave("SelectionOfGraphNames", selection)
 End
 
 //------------------------------------------------------------------------------
@@ -417,4 +410,43 @@ static Function SetStr(name, s)
 		SVAR target = $path
 	endif
 	target = s
+End
+
+//------------------------------------------------------------------------------
+// Utilities
+//------------------------------------------------------------------------------
+
+static Function MinimumMonitorSize(type)
+	String type // "width" or "height"
+	String screens = GrepList(IgorInfo(0), "^SCREEN\\d+")
+	
+	Variable i, min_size = inf
+	for(i = 0; i < ItemsInList(screens); i += 1)
+		String screen = StringFromList(i, screens), left, top, right, bottom
+		SplitString/E="RECT=(\\d+),(\\d+),(\\d+),(\\d+)" screen, left, top, right, bottom
+		
+		strSwitch(type)
+			case "width":
+				min_size = min(min_size, abs(Str2Num(left) - Str2Num(right)))
+				break
+			case "height":
+				min_size = min(min_size, abs(Str2Num(top) - Str2Num(bottom)))
+				break
+		endSwitch
+	endfor
+	
+	return min_size
+End
+
+#if Exists("PanelResolution") != 3
+static Function PanelResolution(wName) // For compatibility between Igor 6 & 7
+	String wName
+	return 72 // that is, "pixels"
+End
+#endif
+
+static Function/WAVE SelectedGraphNames(graphNames, selection)
+	WAVE/T graphNames; WAVE selection
+	Extract/FREE graphNames, selected, selection && strlen(graphNames)
+	return selected
 End
