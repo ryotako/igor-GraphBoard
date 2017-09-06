@@ -9,7 +9,7 @@ End
 // Panel building
 //------------------------------------------------------------------------------
 
-Function NewGraphBoard()
+Function CreateGraphBoard()
 	Variable monWidth  = MinimumMonitorSize("width")
 	Variable monHeight = MinimumMonitorSize("height")
 
