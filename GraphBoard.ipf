@@ -1,6 +1,5 @@
 #pragma ModuleName = GraphBoard
 
-
 Menu "Misc"
 	"GraphBoard", /Q, NewGraphBoard()
 End
@@ -10,29 +9,40 @@ End
 //------------------------------------------------------------------------------
 
 Function CreateGraphBoard()
-	Variable monWidth  = MinimumMonitorSize("width")
-	Variable monHeight = MinimumMonitorSize("height")
-
+	//
 	// Make a GraphBoard window (singleton)
+	//
 	if(strlen(WinList("GraphBoard", ";", "WIN:64")))
 		KillWindow GraphBoard
 	endif
+	
+	Variable monWidth  = MinimumMonitorSize("width")
+	Variable monHeight = MinimumMonitorSize("height")
 	NewPanel/K=1/N=GraphBoard/W=(monWidth*0.7, monHeight*0, monWidth*1, monHeight*1) as "GraphBoard"
-	String panelName = S_Name
 
+	String panelName = S_Name
 	ModifyPanel/W=$panelName noEdit=1
 	SetWindow $panelName, hook(base) = GraphBoard#WinProc
 	
+	//
+	// Make controls on GraphBoard
+	// 	`Execute` operation is required to set a font with a string constant.
+	//
+	String cmd = "", font = "Arial"
+
 	SetVariable GB_Input, title = " "
 	SetVariable GB_Input, value = $PackagePath() + "S_Input"
-	SetVariable GB_Input, font = "Arial", fSize = 15
-	SetVariable GB_Input, proc=GraphBoard#InputAction
+	SetVariable GB_Input, proc = GraphBoard#InputAction
+	sprintf cmd, "SetVariable GB_Input, font = \"%s\", fSize = %d", FONT, 16
+	Execute cmd
 	
 	ListBox GB_ListBox, listWave = GetTxtWave("GraphNames")	
 	ListBox GB_ListBox, selWave = GetNumWave("SelectionOfGraphNames")
 	ListBox GB_ListBox, mode = 10 // multiple select
 	ListBox GB_ListBox, font = "Arial", fsize = 13
-	ListBox GB_ListBox,proc=GraphBoard#ListBoxAction
+	ListBox GB_ListBox, proc = GraphBoard#ListBoxAction
+	sprintf cmd, "ListBox GB_ListBox, font = \"%s\", fSize = %d", FONT, 12
+	Execute cmd
 
 	UpdateGraphNameWave()
 	UpdateControls(panelName)
@@ -41,6 +51,7 @@ EndMacro
 Function UpdateControls(win)
 	String win
 	
+	// Set view
 	strSwitch(GetStr("ListBoxView"))
 		case "list":
 			ListBox GB_ListBox, win=$win, special= {0,0,1}
@@ -51,9 +62,7 @@ Function UpdateControls(win)
 			break
 	endSwitch
 	
-	//
 	// Resize controls
-	//
 	if( PanelResolution(win) == 72 )
 		GetWindow $win wsizeDC		// the new window size in pixels (the Igor 6 way)
 	else
@@ -165,15 +174,14 @@ static Function ListBoxAction(s)
 				DoUpdate	
 
 				WAVE/T selectedGraphs = SelectedGraphNames(GetTxtWave("GraphNames"), selection)								
-								
-				if(numpnts(selectedGraphs))
-					PopupContextualMenu ListBoxContextMenuPopUp(numpnts(selectedGraphs) > 1)
-					ListBoxContextMenuAction(S_Selection, selectedGraphs)
-				else
-					PopupContextualMenu ListBoxGeneralContextMenuPopUp()
-					ListBoxGeneralContextMenuAction(S_Selection)
-				endif
 				
+				
+				FUNCREF GraphBoard_ContextMenuPT ContextMenu = $"GraphBoard_ContextMenu"
+				FUNCREF GraphBoard_ContextMenuActionPT ContextMenuAction = $"GraphBoard_ContextMenuAction"
+				
+				PopupContextualMenu ContextMenu(selectedGraphs)
+				ContextMenuAction(S_Selection, selectedGraphs)
+								
 				UpdateGraphNameWave()
 				UpdateControls(s.win)
 			endif
@@ -192,134 +200,143 @@ static Function ListBoxAction(s)
 End
 
 //------------------------------------------------------------------------------
-// Contextual menu
+// Contextual menu (prototype functions)
 //------------------------------------------------------------------------------
 
-//
-// Countextual menu for graphs
-//
-static Function/S ListBoxGeneralContextMenuPopUp()
-	String popup = ""
-	popup += "sort by date;sort by name;"
-	popup += "----------;"
-	popup += "list view;thumbnail view;"
-	popup += "----------;"
-	popup += "columns 1;columns 2;columns 3;columns 4;"
-	return popup
-End
+// These are proto type functions for contextual menu selections and called actions. 
+// If you user define functions named `GraphBoard_ContextMenu` or GraphBoard_ContextMenuAction`, 
+// those functions are called.
 
-static Function ListBoxGeneralContextMenuAction(action)
-	String action
-	strSwitch(action)
-		case "sort by date":
-			SetStr("SortMethod", "date")
-			break
-		case "sort by name":
-			SetStr("SortMethod", "name")
-			break
-		case "thumbnail view":
-			SetStr("ListBoxView", "thumbnail")
-			break
-		case "list view":
-			SetStr("ListBoxView", "list")
-			break			
-		case "columns 1":
-			SetVar("NumberOfColumns", 1)
-			break
-		case "columns 2":
-			SetVar("NumberOfColumns", 2)
-			break
-		case "columns 3":
-			SetVar("NumberOfColumns", 3)
-			break
-		case "columns 4":
-			SetVar("NumberOfColumns", 4)
-			break
-	endSwitch
-End
+Function/S GraphBoard_ContextMenuPT(graphNames)
+	WAVE/T graphNames
+	String list = ""
+	
+	if(numpnts(graphNames) == 0)
+		list += "sort by date;sort by name;"
+		list += "----------;"
+		list += "list view;thumbnail view;"
+		list += "----------;"
+		list += "columns 1;columns 2;columns 3;columns 4;"
 
-//
-// Contextual menu for GraphBoard panel
-//
-static Function/S ListBoxContextMenuPopUp(isMultipleSelection)
-	Variable isMultipleSelection
-	String popup = ""
-	popup += "show window;hide window;kill window;"
-	popup += "----------;"
-	popup += "make style;apply style;"
-	popup += "----------;"
-	popup += "new layout;add to layout"
+	else // greater than 0
+		list += "show window;hide window;kill window;"
+		list += "----------;"
+		list += "make style;apply style;"
+		list += "----------;"
+		list += "new layout;add to layout;"
 
-	if(IsMultipleSelection)
-		popup = RemoveFromList("make style", popup)
+		if(numpnts(graphNames) > 1) // greater then 1
+			list = RemoveFromList("make style", list)
+		endif
 	endif
-	return popup	
+	
+	return list
 End
 
-static Function ListBoxContextMenuAction(action, graphNames)
+Function GraphBoard_ContextMenuActionPT(action, graphNames)
 	String action; WAVE/T graphNames
-	String styleName = ""
-	String layoutName = ""
-	
-	// confirmation or parameter-setting
-	strSwitch(action)
-		case "kill window":
-			DoAlert 1, "Do you sure you want to kill the graph windows?"
-			if(V_Flag != 1)
-				return NaN
-			endif
-			break
-		case "apply style":
-			Prompt styleName, "Select Graph Style:", popup, MacroList("*", ";", "SUBTYPE:GraphStyle")
-			DoPrompt "Apply Style", styleName
-			if(V_Flag)
-				return NaN
-			endif
-			break
-		case "new layout":
-			Prompt layoutName, "Enter Layout Name:"
-			DoPrompt "New Layout", layoutName
-			if(V_Flag)
-				return NaN
-			endif
-			NewLayout/N=layoutName
-			break
-	endSwitch
-	
-	// do action
-	Variable i
-	for(i = DimSize(graphNames, 0) - 1; i >= 0; i -= 1)
-		String graphName = graphNames[i]
-		
+	Variable EXIT_FAILURE = 1
+	Variable EXIT_SUCCESS = 0
+
+	if(numpnts(graphNames) == 0) // Action for GraphBoard panel
 		strSwitch(action)
-			case "show window":
-				DoWindow/F $graphName
+			case "sort by date":
+				SetStr("SortMethod", "date")
 				break
-			case "hide window":
-				DoWindow/HIDE=1 $graphName
-				break	
+			case "sort by name":
+				SetStr("SortMethod", "name")
+				break
+			case "thumbnail view":
+				SetStr("ListBoxView", "thumbnail")
+				break
+			case "list view":
+				SetStr("ListBoxView", "list")
+				break			
+			case "columns 1":
+				SetVar("NumberOfColumns", 1)
+				break
+			case "columns 2":
+				SetVar("NumberOfColumns", 2)
+				break
+			case "columns 3":
+				SetVar("NumberOfColumns", 3)
+				break
+			case "columns 4":
+				SetVar("NumberOfColumns", 4)
+				break
+			default:
+				return EXIT_FAILURE
+		endSwitch
+
+	else // Action for Graphs 
+		
+		String styleName = ""
+		String layoutName = ""
+
+		// confirmation or parameter-setting
+		strSwitch(action)
 			case "kill window":
-				KillWindow $graphName
-				break
-			case "make style":
-				styleName = graphName + "Style"
-				Prompt styleName "Style Name:"
-				DoPrompt "Make Style", styleName
-				if(!V_Flag)
-					Execute/P "DoWindow/R/S=" +styleName +" "+ graphName
-				endif			
+				DoAlert 1, "Do you sure you want to kill the graph windows?"
+				if(V_Flag != 1)
+					return EXIT_FAILURE
+				endif
 				break
 			case "apply style":
-				String cmd
-				sprintf cmd, "DoWindow/F %s; %s()", graphName, styleName
-				Execute cmd
+				Prompt styleName, "Select Graph Style:", popup, MacroList("*", ";", "SUBTYPE:GraphStyle")
+				DoPrompt "Apply Style", styleName
+				if(V_Flag)
+					return EXIT_FAILURE
+				endif
 				break
 			case "new layout":
-			case "add to layout":
-				AppendLayoutObject/F=0/T=1 graph $graphName
+				Prompt layoutName, "Enter Layout Name:"
+				DoPrompt "New Layout", layoutName
+				if(V_Flag)
+					return EXIT_FAILURE
+				endif
+				NewLayout/N=layoutName
 				break
 		endSwitch
-	endfor
+		
+		// do action
+		Variable i
+		for(i = DimSize(graphNames, 0) - 1; i >= 0; i -= 1)
+			String graphName = graphNames[i]
+			
+			strSwitch(action)
+				case "show window":
+					DoWindow/F $graphName
+					break
+				case "hide window":
+					DoWindow/HIDE=1 $graphName
+					break	
+				case "kill window":
+					KillWindow $graphName
+					break
+				case "make style":
+					styleName = graphName + "Style"
+					Prompt styleName "Style Name:"
+					DoPrompt "Make Style", styleName
+					if(!V_Flag)
+						Execute/P "DoWindow/R/S=" +styleName +" "+ graphName
+					endif			
+					break
+				case "apply style":
+					String cmd
+					sprintf cmd, "DoWindow/F %s; %s()", graphName, styleName
+					Execute cmd
+					break
+				case "new layout":
+				case "add to layout":
+					AppendLayoutObject/F=0/T=1 graph $graphName
+					break
+				default:
+					return EXIT_FAILURE
+			endSwitch
+		endfor
+	endif
+	
+	return EXIT_SUCCESS
 End
 
 //------------------------------------------------------------------------------
