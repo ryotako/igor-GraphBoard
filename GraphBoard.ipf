@@ -53,7 +53,7 @@ Function CreateGraphBoard()
 	UpdateControls(panelName)
 EndMacro
 
-Function UpdateControls(win)
+static Function UpdateControls(win)
 	String win
 	
 	// Set view
