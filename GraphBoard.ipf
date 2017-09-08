@@ -15,10 +15,15 @@ Function CreateGraphBoard()
 	if(strlen(WinList("GraphBoard", ";", "WIN:64")))
 		KillWindow GraphBoard
 	endif
-	
-	Variable monWidth  = MinimumMonitorSize("width")
-	Variable monHeight = MinimumMonitorSize("height")
-	NewPanel/K=1/N=GraphBoard/W=(monWidth*0.7, monHeight*0, monWidth*1, monHeight*1) as "GraphBoard"
+
+	WAVE panelRect = GetNumWave("PanelRect")
+	if(DimSize(panelRect, 0) != 4)
+		Variable monWidth  = MinimumMonitorSize("width")
+		Variable monHeight = MinimumMonitorSize("height")
+		Make/FREE/N=4 panelRect = {monWidth * 0.7, monHeight * 0, monWidth * 1, monHeight * 1}
+	endif
+		
+	NewPanel/K=1/N=GraphBoard/W=(panelRect[0], panelRect[1], panelRect[2], panelRect[3]) as "GraphBoard"
 
 	String panelName = S_Name
 	ModifyPanel/W=$panelName noEdit=1
@@ -134,6 +139,9 @@ static Function WinProc(s)
 			UpdateGraphNameWave()
 			UpdateControls(s.winName)
 			break
+		case 2: // kill
+			GetWindow $s.winName wsizeOuter
+			SetNumWave("PanelRect", {V_left, V_top, V_right, V_bottom})
 		case 6: // resize
 			UpdateControls(s.winName)
 			break
