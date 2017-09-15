@@ -200,7 +200,6 @@ static Function ListBoxAction(s)
 			
 			UpdateGraphNameWave()
 			UpdateControls(s.win)
-			DoWindow/F $s.win
 			break
 	endswitch
 
