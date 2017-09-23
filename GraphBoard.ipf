@@ -1,7 +1,7 @@
 #pragma ModuleName = GraphBoard
 
 Menu "Misc"
-	"GraphBoard", /Q, NewGraphBoard()
+	"GraphBoard", /Q, CreateGraphBoard()
 End
 
 //------------------------------------------------------------------------------
