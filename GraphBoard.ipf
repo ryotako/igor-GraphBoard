@@ -242,8 +242,6 @@ End
 
 Function GraphBoard_DefaultMenuAction(action, graphNames)
 	String action; WAVE/T graphNames
-	Variable EXIT_FAILURE = 1
-	Variable EXIT_SUCCESS = 0
 
 	if(numpnts(graphNames) == 0) // Action for GraphBoard panel
 		strSwitch(action)
@@ -272,7 +270,7 @@ Function GraphBoard_DefaultMenuAction(action, graphNames)
 				SetVar("NumberOfColumns", 4)
 				break
 			default:
-				return EXIT_FAILURE
+				return NaN
 		endSwitch
 
 	else // Action for Graphs 
@@ -285,21 +283,21 @@ Function GraphBoard_DefaultMenuAction(action, graphNames)
 			case "kill window":
 				DoAlert 1, "Do you sure you want to kill the graph windows?"
 				if(V_Flag != 1)
-					return EXIT_FAILURE
+					return NaN
 				endif
 				break
 			case "apply style":
 				Prompt styleName, "Select Graph Style:", popup, MacroList("*", ";", "SUBTYPE:GraphStyle")
 				DoPrompt "Apply Style", styleName
 				if(V_Flag)
-					return EXIT_FAILURE
+					return NaN
 				endif
 				break
 			case "new layout":
 				Prompt layoutName, "Enter Layout Name:"
 				DoPrompt "New Layout", layoutName
 				if(V_Flag)
-					return EXIT_FAILURE
+					return NaN
 				endif
 				NewLayout/N=layoutName
 				break
@@ -338,12 +336,10 @@ Function GraphBoard_DefaultMenuAction(action, graphNames)
 					AppendLayoutObject/F=0/T=1 graph $graphName
 					break
 				default:
-					return EXIT_FAILURE
+					return NaN
 			endSwitch
 		endfor
 	endif
-	
-	return EXIT_SUCCESS
 End
 
 //------------------------------------------------------------------------------
