@@ -184,11 +184,11 @@ static Function ListBoxAction(s)
 				WAVE/T selectedGraphs = SelectedGraphNames(GetTxtWave("GraphNames"), selection)								
 				
 				
-				FUNCREF GraphBoard_ContextMenuPT ContextMenu = $"GraphBoard_ContextMenu"
-				FUNCREF GraphBoard_ContextMenuActionPT ContextMenuAction = $"GraphBoard_ContextMenuAction"
+				FUNCREF GraphBoard_DefaultMenu Menu = $"GraphBoard_Menu"
+				FUNCREF GraphBoard_DefaultMenuAction Action = $"GraphBoard_MenuAction"
 				
-				PopupContextualMenu ContextMenu(selectedGraphs)
-				ContextMenuAction(S_Selection, selectedGraphs)
+				PopupContextualMenu Menu(selectedGraphs)
+				Action(S_Selection, selectedGraphs)
 								
 				UpdateGraphNameWave()
 				UpdateControls(s.win)
@@ -214,7 +214,7 @@ End
 // If you user define functions named `GraphBoard_ContextMenu` or GraphBoard_ContextMenuAction`, 
 // those functions are called.
 
-Function/S GraphBoard_ContextMenuPT(graphNames)
+Function/S GraphBoard_DefaultMenu(graphNames)
 	WAVE/T graphNames
 	String list = ""
 	
@@ -240,7 +240,7 @@ Function/S GraphBoard_ContextMenuPT(graphNames)
 	return list
 End
 
-Function GraphBoard_ContextMenuActionPT(action, graphNames)
+Function GraphBoard_DefaultMenuAction(action, graphNames)
 	String action; WAVE/T graphNames
 	Variable EXIT_FAILURE = 1
 	Variable EXIT_SUCCESS = 0
