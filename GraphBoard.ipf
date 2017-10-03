@@ -38,7 +38,7 @@ Function CreateGraphBoard()
 	SetVariable GB_Input, title = " "
 	SetVariable GB_Input, value = $PackagePath() + "S_Input"
 	SetVariable GB_Input, proc = GraphBoard#InputAction
-	sprintf cmd, "SetVariable GB_Input, font = \"%s\", fSize = %d", FONT, 16
+	sprintf cmd, "SetVariable GB_Input, font = \"%s\", fSize = %d", font, 16
 	Execute cmd
 	
 	ListBox GB_ListBox, listWave = GetTxtWave("GraphNames")	
@@ -46,7 +46,7 @@ Function CreateGraphBoard()
 	ListBox GB_ListBox, mode = 10 // multiple select
 	ListBox GB_ListBox, font = "Arial", fsize = 13
 	ListBox GB_ListBox, proc = GraphBoard#ListBoxAction
-	sprintf cmd, "ListBox GB_ListBox, font = \"%s\", fSize = %d", FONT, 12
+	sprintf cmd, "ListBox GB_ListBox, font = \"%s\", fSize = %d", font, 12
 	Execute cmd
 
 	UpdateGraphNameWave()
@@ -129,7 +129,7 @@ static Function WinProc(s)
 	
 	// GraphBoard window is a singleton:
 	// Window-copying is disable 
-	if(!StringMatch(s.winName,"GraphBoard"))
+	if(!StringMatch(s.winName, "GraphBoard"))
 		KillWindow $s.winName
 		return NaN
 	endif
