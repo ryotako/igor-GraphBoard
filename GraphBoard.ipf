@@ -230,10 +230,13 @@ Function/S GraphBoard_DefaultMenu(graphNames)
 		list += "----------;"
 		list += "make style;apply style;"
 		list += "----------;"
-		list += "new layout;add to layout;"
+		list += "new layout;"
+		if(ItemsInList(WinList("*", ";", "WIN:4")))
+			list += "add to layout;"
+		endif
 
 		if(numpnts(graphNames) > 1) // greater then 1
-			list = RemoveFromList("make style", list)
+			list = RemoveFromList("make style;", list)
 		endif
 	endif
 	
@@ -299,7 +302,7 @@ Function GraphBoard_DefaultMenuAction(action, graphNames)
 				if(V_Flag)
 					return NaN
 				endif
-				NewLayout/N=layoutName
+				NewLayout/N=$layoutName as layoutName
 				break
 		endSwitch
 		
