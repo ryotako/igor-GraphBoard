@@ -1,6 +1,8 @@
 # igor-GraphBoard
 GraphBoard.ipf provide an alternative graph selecting interface for Igor Pro.
 
+![screenshots](screenshots.png)
+
 # Features
 
 - Simple user interface
