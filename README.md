@@ -1,3 +1,5 @@
+:us: [:jp:](https://github.com/ryotako/igor-GraphBoard/wiki)
+
 # igor-GraphBoard
 GraphBoard.ipf provide an alternative graph selecting interface for Igor Pro.
 
