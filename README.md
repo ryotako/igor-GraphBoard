@@ -29,4 +29,4 @@ End
 ```
 
 # How to extend popup menu actions
-See Wiki(now constracting)
+See [Wiki](https://github.com/ryotako/igor-GraphBoard/wiki/How-to-customize-the-popup-menu)
